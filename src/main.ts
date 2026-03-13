@@ -6,12 +6,14 @@ import {
   requestMicrophonePermission,
 } from "./voice/index.ts";
 import { createRoadScene } from "./scene/index.ts";
+import { initCamera } from "./camera";
 
 // ── Three.js setup ───────────────────────────────────────────────────
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0);
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -83,6 +85,8 @@ engine.on("stateChange", (s) => {
 // ── Startup: request mic permission ──────────────────────────────────
 
 async function init() {
+  initCamera();
+
   if (!voice.supported) {
     ui.setVoiceStatus("Web Speech API not supported — try Chrome or Edge");
     return;
