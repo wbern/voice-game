@@ -16,6 +16,38 @@ import {
   CelebrationBurst,
 } from "./effects/index.ts";
 
+// ── WebGPU gate ─────────────────────────────────────────────────────
+
+function checkWebGPU(): boolean {
+  if ((navigator as Navigator & { gpu?: unknown }).gpu !== undefined) return true;
+
+  // Show full-screen unsupported message
+  document.body.innerHTML = "";
+  const msg = document.createElement("div");
+  msg.style.cssText = [
+    "position:fixed",
+    "inset:0",
+    "display:flex",
+    "align-items:center",
+    "justify-content:center",
+    "background:#1a1a2e",
+    "color:#fff",
+    "font-family:system-ui,-apple-system,sans-serif",
+    "font-size:1.25rem",
+    "text-align:center",
+    "padding:2rem",
+    "line-height:1.6",
+  ].join(";");
+  msg.textContent =
+    "Your device does not support WebGPU. Please use a recent version of Chrome, Safari 26+, or Edge.";
+  document.body.appendChild(msg);
+  return false;
+}
+
+if (!checkWebGPU()) {
+  throw new Error("WebGPU not supported");
+}
+
 // ── Three.js setup ───────────────────────────────────────────────────
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -134,6 +166,14 @@ const voice = new VoiceRecognition({
   onError(error) {
     ui.setVoiceStatus(`Voice error: ${error}`);
   },
+  onProgress(progress) {
+    const pct = Math.round(progress * 100);
+    if (pct < 100) {
+      ui.setVoiceStatus(`Loading speech model... ${pct}%`);
+    } else {
+      ui.setVoiceStatus("Speech model ready");
+    }
+  },
 });
 
 // Update voice target whenever the game phrase changes
@@ -146,7 +186,7 @@ engine.on("phraseChange", (s) => {
 // Start/stop voice recognition based on game state
 engine.on("stateChange", (s) => {
   if (s.state === "PLAYING") {
-    if (!voice.isRunning) voice.start();
+    if (!voice.isRunning) void voice.start();
   } else if (s.state === "PAUSED" || s.state === "GAME_OVER" || s.state === "MENU") {
     voice.stop();
   }
@@ -192,15 +232,10 @@ ui.onDownloadAction((blob) => {
   downloadRecording(blob);
 });
 
-// ── Startup: request mic permission ──────────────────────────────────
+// ── Startup: request mic permission + preload model ──────────────────
 
 async function init() {
   initCamera();
-
-  if (!voice.supported) {
-    ui.setVoiceStatus("Web Speech API not supported — try Chrome or Edge");
-    return;
-  }
 
   ui.setVoiceStatus("Requesting microphone access...");
   const granted = await requestMicrophonePermission();
@@ -208,7 +243,11 @@ async function init() {
     ui.setVoiceStatus("Microphone access denied — enable it to play");
     return;
   }
-  ui.setVoiceStatus("Microphone ready");
+
+  // Start loading the Whisper model in the background so it's ready when
+  // the player hits play. The progress callback updates the UI.
+  ui.setVoiceStatus("Loading speech model...");
+  await voice.loadModel();
 }
 
 init();
