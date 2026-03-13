@@ -10,8 +10,16 @@ import {
   setStatus,
   showMatchFeedback,
 } from "./ui/index.ts";
-import { level1Phrases } from "./levels/index.ts";
+import { LevelManager } from "./game/index.ts";
 import { createRoadScene } from "./scene/index.ts";
+
+// ---------------------------------------------------------------------------
+// Level system
+// ---------------------------------------------------------------------------
+
+const levelManager = new LevelManager();
+const currentLevel = levelManager.getLevel(levelManager.unlockedLevel) ?? levelManager.getLevel(1)!;
+const levelPhrases = currentLevel.phrases;
 
 // ---------------------------------------------------------------------------
 // Three.js scene
@@ -58,15 +66,15 @@ renderer.setAnimationLoop(animate);
 
 const hud = createHUD();
 
-// Pick a random phrase from level 1 for demo
-let phraseIndex = Math.floor(Math.random() * level1Phrases.length);
+// Pick a random phrase from the current level
+let phraseIndex = Math.floor(Math.random() * levelPhrases.length);
 
 function currentPhrase() {
-  return level1Phrases[phraseIndex]!;
+  return levelPhrases[phraseIndex]!;
 }
 
 function nextPhrase() {
-  phraseIndex = (phraseIndex + 1) % level1Phrases.length;
+  phraseIndex = (phraseIndex + 1) % levelPhrases.length;
   const phrase = currentPhrase();
   setTargetPhrase(hud, phrase.text);
   setTranscript(hud, "", false);

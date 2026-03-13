@@ -1,2 +1,3 @@
 // Game logic: scoring, lives, game loop
-export {};
+export { LevelManager } from "./level-manager";
+export type { LevelSummary } from "./level-manager";
