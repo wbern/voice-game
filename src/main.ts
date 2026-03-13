@@ -11,9 +11,10 @@ import {
   showMatchFeedback,
 } from "./ui/index.ts";
 import { level1Phrases } from "./levels/index.ts";
+import { createRoadScene } from "./scene/index.ts";
 
 // ---------------------------------------------------------------------------
-// Three.js scene (existing setup)
+// Three.js scene
 // ---------------------------------------------------------------------------
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -22,16 +23,16 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a2e);
 
+// Camera: driver/runner perspective looking down the road
 const camera = new THREE.PerspectiveCamera(
-  60,
+  70,
   window.innerWidth / window.innerHeight,
   0.1,
-  1000,
+  200,
 );
-camera.position.set(0, 5, 10);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 3, 8);
+camera.lookAt(0, 1, -40);
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -39,7 +40,13 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+const roadScene = createRoadScene(scene, { speed: 20 });
+
+const clock = new THREE.Clock();
+
 function animate() {
+  const dt = clock.getDelta();
+  roadScene.update(dt);
   renderer.render(scene, camera);
 }
 
