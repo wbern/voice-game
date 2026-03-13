@@ -1,29 +1,13 @@
 import * as THREE from "three";
+import { GameEngine } from "./game";
+import { GameUI } from "./ui";
 import {
   VoiceRecognition,
   requestMicrophonePermission,
 } from "./voice/index.ts";
-import {
-  createHUD,
-  setTargetPhrase,
-  setTranscript,
-  setStatus,
-  showMatchFeedback,
-} from "./ui/index.ts";
-import { LevelManager } from "./game/index.ts";
 import { createRoadScene } from "./scene/index.ts";
 
-// ---------------------------------------------------------------------------
-// Level system
-// ---------------------------------------------------------------------------
-
-const levelManager = new LevelManager();
-const currentLevel = levelManager.getLevel(levelManager.unlockedLevel) ?? levelManager.getLevel(1)!;
-const levelPhrases = currentLevel.phrases;
-
-// ---------------------------------------------------------------------------
-// Three.js scene
-// ---------------------------------------------------------------------------
+// ── Three.js setup ───────────────────────────────────────────────────
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -52,6 +36,71 @@ const roadScene = createRoadScene(scene, { speed: 20 });
 
 const clock = new THREE.Clock();
 
+// ── Game engine + UI ─────────────────────────────────────────────────
+
+const engine = new GameEngine();
+const ui = new GameUI(engine);
+
+// Expose engine on window for debugging
+(window as unknown as Record<string, unknown>).gameEngine = engine;
+
+// Adjust road speed based on game speed
+engine.on("phraseChange", (s) => {
+  roadScene.setSpeed(20 * s.speed);
+});
+
+// ── Voice recognition integration ────────────────────────────────────
+
+const voice = new VoiceRecognition({
+  matchThreshold: 0.8,
+  onTranscript(transcript, isFinal) {
+    ui.setTranscript(transcript, isFinal);
+  },
+  onMatch(_phrase, _spoken, _sim) {
+    engine.phraseHit();
+  },
+  onError(error) {
+    ui.setVoiceStatus(`Voice error: ${error}`);
+  },
+});
+
+// Update voice target whenever the game phrase changes
+engine.on("phraseChange", (s) => {
+  if (s.currentPhrase) {
+    voice.setTargetPhrase(s.currentPhrase.text);
+  }
+});
+
+// Start/stop voice recognition based on game state
+engine.on("stateChange", (s) => {
+  if (s.state === "PLAYING") {
+    if (!voice.isRunning) voice.start();
+  } else if (s.state === "PAUSED" || s.state === "GAME_OVER" || s.state === "MENU") {
+    voice.stop();
+  }
+});
+
+// ── Startup: request mic permission ──────────────────────────────────
+
+async function init() {
+  if (!voice.supported) {
+    ui.setVoiceStatus("Web Speech API not supported — try Chrome or Edge");
+    return;
+  }
+
+  ui.setVoiceStatus("Requesting microphone access...");
+  const granted = await requestMicrophonePermission();
+  if (!granted) {
+    ui.setVoiceStatus("Microphone access denied — enable it to play");
+    return;
+  }
+  ui.setVoiceStatus("Microphone ready");
+}
+
+init();
+
+// ── Render loop ──────────────────────────────────────────────────────
+
 function animate() {
   const dt = clock.getDelta();
   roadScene.update(dt);
@@ -59,69 +108,3 @@ function animate() {
 }
 
 renderer.setAnimationLoop(animate);
-
-// ---------------------------------------------------------------------------
-// HUD + Voice Recognition
-// ---------------------------------------------------------------------------
-
-const hud = createHUD();
-
-// Pick a random phrase from the current level
-let phraseIndex = Math.floor(Math.random() * levelPhrases.length);
-
-function currentPhrase() {
-  return levelPhrases[phraseIndex]!;
-}
-
-function nextPhrase() {
-  phraseIndex = (phraseIndex + 1) % levelPhrases.length;
-  const phrase = currentPhrase();
-  setTargetPhrase(hud, phrase.text);
-  setTranscript(hud, "", false);
-  voice.setTargetPhrase(phrase.text);
-}
-
-const voice = new VoiceRecognition({
-  matchThreshold: 0.8,
-  onTranscript(transcript, isFinal) {
-    setTranscript(hud, transcript, isFinal);
-  },
-  onMatch(_phrase, _spoken, sim) {
-    showMatchFeedback(hud, sim);
-    // After a brief delay, advance to next phrase
-    setTimeout(nextPhrase, 1500);
-  },
-  onError(error) {
-    setStatus(hud, `Voice error: ${error}`);
-  },
-});
-
-// ---------------------------------------------------------------------------
-// Startup: request mic permission then begin
-// ---------------------------------------------------------------------------
-
-async function init() {
-  if (!voice.supported) {
-    setStatus(hud, "Web Speech API not supported — try Chrome or Edge");
-    setTargetPhrase(hud, "");
-    return;
-  }
-
-  setStatus(hud, "Requesting microphone access...");
-
-  const granted = await requestMicrophonePermission();
-  if (!granted) {
-    setStatus(hud, "Microphone access denied — enable it to play");
-    return;
-  }
-
-  // Set initial phrase and start listening
-  const phrase = currentPhrase();
-  setTargetPhrase(hud, phrase.text);
-  voice.setTargetPhrase(phrase.text);
-  voice.start();
-
-  setStatus(hud, "Listening... speak the phrase above!");
-}
-
-init();
