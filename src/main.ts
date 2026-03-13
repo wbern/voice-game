@@ -7,6 +7,8 @@ import {
 } from "./voice/index.ts";
 import { createRoadScene } from "./scene/index.ts";
 import { initCamera } from "./camera";
+import { GameRecorder, shareRecording, downloadRecording } from "./recorder";
+import { createRecordingDestination } from "./audio";
 
 // ── Three.js setup ───────────────────────────────────────────────────
 
@@ -80,6 +82,46 @@ engine.on("stateChange", (s) => {
   } else if (s.state === "PAUSED" || s.state === "GAME_OVER" || s.state === "MENU") {
     voice.stop();
   }
+});
+
+// ── Screen recording ─────────────────────────────────────────────────
+
+const cameraVideo = document.getElementById("camera-feed") as HTMLVideoElement;
+const recorder = new GameRecorder(renderer.domElement, cameraVideo);
+
+// Start recording on countdown, stop on game over
+let audioConnected = false;
+engine.on("stateChange", (s) => {
+  if (s.state === "COUNTDOWN") {
+    // Connect audio once (AudioContext must exist after user gesture)
+    if (!audioConnected) {
+      const audioDest = createRecordingDestination();
+      if (audioDest) recorder.connectAudio(audioDest);
+      audioConnected = true;
+    }
+    recorder.start();
+    ui.setRecording(true);
+  } else if (s.state === "GAME_OVER" && recorder.isRecording) {
+    recorder.stop().then((blob) => {
+      ui.setRecording(false);
+      if (blob.size > 0) {
+        ui.setRecordingBlob(blob);
+      }
+    });
+  } else if (s.state === "MENU") {
+    ui.setRecording(false);
+    ui.setRecordingBlob(null);
+  }
+});
+
+// Wire share/download actions
+ui.onShareAction(async (blob) => {
+  const shared = await shareRecording(blob);
+  if (!shared) downloadRecording(blob);
+});
+
+ui.onDownloadAction((blob) => {
+  downloadRecording(blob);
 });
 
 // ── Startup: request mic permission ──────────────────────────────────

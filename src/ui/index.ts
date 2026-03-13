@@ -280,6 +280,44 @@ const OVERLAY_STYLES = `
   }
   .feedback.hit { color: #4ade80; }
   .feedback.miss { color: #ef4444; }
+
+  /* ── Recording indicator ─────────────────────────────────── */
+  .rec-indicator {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ef4444;
+  }
+  .rec-indicator.visible { display: flex; }
+  .rec-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: recBlink 1s ease-in-out infinite;
+  }
+  @keyframes recBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── Share/Download buttons on game over ──────────────────── */
+  .share-buttons {
+    display: none;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .share-buttons.visible { display: flex; }
+  .btn-share {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+  }
+  .btn-download {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+  }
 `;
 
 // ── UI Manager ───────────────────────────────────────────────────────
@@ -313,6 +351,12 @@ export class GameUI {
   private newHighscore!: HTMLElement;
   private pauseOverlay!: HTMLElement;
   private feedback!: HTMLElement;
+  private recIndicator!: HTMLElement;
+  private shareButtons!: HTMLElement;
+
+  private lastRecordingBlob: Blob | null = null;
+  private onShare: ((blob: Blob) => void) | null = null;
+  private onDownload: ((blob: Blob) => void) | null = null;
 
   constructor(engine: GameEngine) {
     this.engine = engine;
@@ -335,6 +379,25 @@ export class GameUI {
   /** Update the voice status message */
   setVoiceStatus(text: string): void {
     this.voiceStatus.textContent = text;
+  }
+
+  /** Show/hide the recording indicator in the HUD */
+  setRecording(active: boolean): void {
+    this.recIndicator.classList.toggle("visible", active);
+  }
+
+  /** Store a recording blob so share/download buttons work on game over */
+  setRecordingBlob(blob: Blob | null): void {
+    this.lastRecordingBlob = blob;
+  }
+
+  /** Register handlers for share/download actions */
+  onShareAction(handler: (blob: Blob) => void): void {
+    this.onShare = handler;
+  }
+
+  onDownloadAction(handler: (blob: Blob) => void): void {
+    this.onDownload = handler;
   }
 
   destroy(): void {
@@ -369,6 +432,10 @@ export class GameUI {
         </div>
         <div class="hud-right">
           <div class="lives-display"></div>
+          <div class="rec-indicator">
+            <span class="rec-dot"></span>
+            <span>REC</span>
+          </div>
           <button class="menu-btn btn-secondary" style="padding:6px 14px;font-size:13px"
                   data-action="pause">| |</button>
         </div>
@@ -419,6 +486,10 @@ export class GameUI {
           </div>
         </div>
         <div class="new-highscore">New High Score!</div>
+        <div class="share-buttons">
+          <button class="menu-btn btn-share" data-action="share">Share</button>
+          <button class="menu-btn btn-download" data-action="download">Download</button>
+        </div>
         <button class="menu-btn btn-play" data-action="restart">Play Again</button>
         <button class="menu-btn btn-secondary" data-action="menu">Menu</button>
       </div>
@@ -453,6 +524,8 @@ export class GameUI {
     this.newHighscore = this.root.querySelector(".new-highscore")!;
     this.pauseOverlay = this.root.querySelector(".pause-overlay")!;
     this.feedback = this.root.querySelector(".feedback")!;
+    this.recIndicator = this.root.querySelector(".rec-indicator")!;
+    this.shareButtons = this.root.querySelector(".share-buttons")!;
   }
 
   // ── Event binding ──────────────────────────────────────────────
@@ -466,6 +539,8 @@ export class GameUI {
       if (action === "start" || action === "restart") this.engine.startGame();
       else if (action === "menu") this.engine.returnToMenu();
       else if (action === "pause") this.engine.togglePause();
+      else if (action === "share" && this.lastRecordingBlob) this.onShare?.(this.lastRecordingBlob);
+      else if (action === "download" && this.lastRecordingBlob) this.onDownload?.(this.lastRecordingBlob);
     });
 
     // Game events
@@ -558,6 +633,7 @@ export class GameUI {
     this.gameoverCombo.textContent = `${s.maxCombo}x`;
     this.gameoverLevel.textContent = String(s.currentLevel);
     this.newHighscore.classList.toggle("visible", s.score >= s.highScore && s.score > 0);
+    this.shareButtons.classList.toggle("visible", this.lastRecordingBlob !== null && this.lastRecordingBlob.size > 0);
   }
 
   // ── HUD updates ────────────────────────────────────────────────

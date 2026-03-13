@@ -255,6 +255,19 @@ export function isDucked(): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Recording — route audio to a MediaStream for screen capture
+// ---------------------------------------------------------------------------
+
+/** Create a MediaStreamDestination connected to the master gain for recording. */
+export function createRecordingDestination(): MediaStreamAudioDestinationNode | null {
+  const c = ensureContext();
+  if (!masterGain) return null;
+  const dest = c.createMediaStreamDestination();
+  masterGain.connect(dest);
+  return dest;
+}
+
+// ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
 
