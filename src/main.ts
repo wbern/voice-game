@@ -9,6 +9,7 @@ import { createRoadScene } from "./scene/index.ts";
 import { initCamera } from "./camera";
 import { GameRecorder, shareRecording, downloadRecording } from "./recorder";
 import { createRecordingDestination } from "./audio";
+import { ObstacleManager, getLevelColor } from "./obstacles/index.ts";
 
 // ── Three.js setup ───────────────────────────────────────────────────
 
@@ -51,6 +52,47 @@ const ui = new GameUI(engine);
 // Adjust road speed based on game speed
 engine.on("phraseChange", (s) => {
   roadScene.setSpeed(20 * s.speed);
+});
+
+// ── Obstacle system ──────────────────────────────────────────────────
+
+const obstacles = new ObstacleManager(scene);
+
+// Set obstacle color when level changes
+engine.on("levelChange", (s) => {
+  obstacles.clear();
+  obstacles.setColor(getLevelColor(s.currentLevel));
+});
+
+// Spawn / extend obstacle queue when phrase changes
+engine.on("phraseChange", (s) => {
+  if (s.state !== "PLAYING") return;
+
+  if (obstacles.getActiveCount() === 0) {
+    // First phrase or after level clear — build full queue
+    const queue: Array<{ text: string; hint: string }> = [];
+    for (let i = 0; i < 3; i++) {
+      const p = s.levelPhrases[s.currentPhraseIndex + i];
+      if (p) queue.push(p);
+    }
+    obstacles.spawnQueue(queue);
+  } else {
+    // Add upcoming phrase to back of queue
+    const ahead = s.currentPhraseIndex + 2;
+    const p = s.levelPhrases[ahead];
+    if (p) obstacles.addToQueue(p.text, p.hint);
+  }
+});
+
+// Shatter on hit, flash red on miss
+engine.on("phraseHit", () => obstacles.shatterActive());
+engine.on("phraseMiss", () => obstacles.missActive());
+
+// Clear obstacles when leaving play
+engine.on("stateChange", (s) => {
+  if (s.state === "GAME_OVER" || s.state === "MENU") {
+    obstacles.clear();
+  }
 });
 
 // ── Voice recognition integration ────────────────────────────────────
@@ -149,7 +191,12 @@ init();
 
 function animate() {
   const dt = clock.getDelta();
+  const s = engine.getState();
+  const timeRatio =
+    s.phraseTimeTotal > 0 ? s.phraseTimeRemaining / s.phraseTimeTotal : 1;
+
   roadScene.update(dt);
+  obstacles.update(dt, timeRatio);
   renderer.render(scene, camera);
 }
 
