@@ -73,10 +73,37 @@ const OVERLAY_STYLES = `
   }
   .combo-display.pop { transform: scale(1.4); }
 
-  /* ── Phrase area (center) ───────────────────────────────── */
+  /* ── Mic icon (top-left) ───────────────────────────────── */
+  .mic-icon {
+    position: absolute;
+    top: 70px;
+    left: 16px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.4);
+    transition: background 0.3s;
+  }
+  .mic-icon svg {
+    width: 22px;
+    height: 22px;
+    fill: #888;
+    transition: fill 0.3s;
+  }
+  .mic-icon.active {
+    background: rgba(59, 130, 246, 0.3);
+  }
+  .mic-icon.active svg {
+    fill: #3b82f6;
+  }
+
+  /* ── Phrase area (upper portion, above road) ──────────── */
   .phrase-area {
     position: absolute;
-    top: 50%;
+    top: 22%;
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
@@ -265,7 +292,7 @@ const OVERLAY_STYLES = `
   /* ── Hit/Miss feedback ──────────────────────────────────── */
   .feedback {
     position: absolute;
-    top: 40%;
+    top: 30%;
     left: 50%;
     transform: translate(-50%, -50%);
     font-size: 28px;
@@ -353,6 +380,7 @@ export class GameUI {
   private feedback!: HTMLElement;
   private recIndicator!: HTMLElement;
   private shareButtons!: HTMLElement;
+  private micIcon!: HTMLElement;
 
   private lastRecordingBlob: Blob | null = null;
   private onShare: ((blob: Blob) => void) | null = null;
@@ -379,6 +407,11 @@ export class GameUI {
   /** Update the voice status message */
   setVoiceStatus(text: string): void {
     this.voiceStatus.textContent = text;
+  }
+
+  /** Update the mic icon active state (blue = listening, gray = inactive) */
+  setMicActive(active: boolean): void {
+    this.micIcon.classList.toggle("active", active);
   }
 
   /** Show/hide the recording indicator in the HUD */
@@ -417,6 +450,14 @@ export class GameUI {
 
   private buildDOM(): void {
     this.root.innerHTML = `
+      <!-- Mic icon -->
+      <div class="mic-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/>
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
+      </div>
+
       <!-- HUD -->
       <div class="hud">
         <div class="hud-left">
@@ -526,6 +567,7 @@ export class GameUI {
     this.feedback = this.root.querySelector(".feedback")!;
     this.recIndicator = this.root.querySelector(".rec-indicator")!;
     this.shareButtons = this.root.querySelector(".share-buttons")!;
+    this.micIcon = this.root.querySelector(".mic-icon")!;
   }
 
   // ── Event binding ──────────────────────────────────────────────

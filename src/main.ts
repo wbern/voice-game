@@ -10,11 +10,7 @@ import { initCamera } from "./camera";
 import { GameRecorder, shareRecording, downloadRecording } from "./recorder";
 import { createRecordingDestination } from "./audio";
 import { ObstacleManager, getLevelColor } from "./obstacles/index.ts";
-import {
-  ScreenShake,
-  SpeedLines,
-  CelebrationBurst,
-} from "./effects/index.ts";
+import { ScreenShake, CelebrationBurst } from "./effects/index.ts";
 
 // ── WebGPU gate ─────────────────────────────────────────────────────
 
@@ -58,15 +54,15 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 
-// Camera: driver/runner perspective looking down the road
+// Camera: elevated view looking down at the wooden shelf road (lower ~40% of screen)
 const camera = new THREE.PerspectiveCamera(
-  70,
+  55,
   window.innerWidth / window.innerHeight,
   0.1,
-  200,
+  100,
 );
-camera.position.set(0, 3, 8);
-camera.lookAt(0, 1, -40);
+camera.position.set(0, 3, 7);
+camera.lookAt(0, 0.5, -10);
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -98,7 +94,6 @@ const obstacles = new ObstacleManager(scene);
 // ── Visual effects ──────────────────────────────────────────────────
 
 const screenShake = new ScreenShake(camera);
-const speedLines = new SpeedLines(scene);
 const celebrationBurst = new CelebrationBurst(scene);
 
 // Screen shake on miss
@@ -109,11 +104,6 @@ engine.on("phraseHit", (s) => {
   const color = getLevelColor(s.currentLevel);
   // Burst at approximate active obstacle position
   celebrationBurst.emit(new THREE.Vector3(0, 1.5, 0), color);
-});
-
-// Sync speed lines with road speed
-engine.on("phraseChange", (s) => {
-  speedLines.setSpeed(20 * s.speed);
 });
 
 // Set obstacle color when level changes
@@ -187,8 +177,10 @@ engine.on("phraseChange", (s) => {
 engine.on("stateChange", (s) => {
   if (s.state === "PLAYING") {
     if (!voice.isRunning) void voice.start();
+    ui.setMicActive(true);
   } else if (s.state === "PAUSED" || s.state === "GAME_OVER" || s.state === "MENU") {
     voice.stop();
+    ui.setMicActive(false);
   }
 });
 
@@ -263,7 +255,6 @@ function animate() {
   roadScene.update(dt);
   obstacles.update(dt, timeRatio);
   screenShake.update(dt);
-  speedLines.update(dt);
   celebrationBurst.update(dt);
   renderer.render(scene, camera);
 }

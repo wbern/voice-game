@@ -2,12 +2,12 @@ import * as THREE from "three";
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const ROAD_WIDTH = 6;
-const WALL_HEIGHT = 2.5;
-const WALL_DEPTH = 0.4;
-const SPAWN_Z = -45;
-const PLAYER_Z = 4;
-const QUEUE_SPACING = 14;
+const ROAD_WIDTH = 4;
+const WALL_HEIGHT = 1.8;
+const WALL_DEPTH = 0.3;
+const SPAWN_Z = -20;
+const PLAYER_Z = 2;
+const QUEUE_SPACING = 8;
 
 const SHATTER_PIECES = 16;
 const SHATTER_DURATION = 0.8;
