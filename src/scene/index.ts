@@ -13,6 +13,50 @@ const LANE_MARKING_LENGTH = 3;
 const LANE_MARKING_GAP = 4;
 const SHOULDER_WIDTH = 0.3;
 
+// ── Procedural road texture ─────────────────────────────────────────
+
+function createAsphaltTexture(): THREE.CanvasTexture {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  // Base dark grey
+  ctx.fillStyle = "#2a2a2a";
+  ctx.fillRect(0, 0, size, size);
+
+  // Speckled grain for asphalt look
+  const imageData = ctx.getImageData(0, 0, size, size);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 20;
+    data[i] = Math.max(0, Math.min(255, data[i]! + noise));
+    data[i + 1] = Math.max(0, Math.min(255, data[i + 1]! + noise));
+    data[i + 2] = Math.max(0, Math.min(255, data[i + 2]! + noise));
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // Subtle horizontal cracks
+  ctx.strokeStyle = "rgba(0,0,0,0.15)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) {
+    const y = Math.random() * size;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    for (let x = 0; x < size; x += 8) {
+      ctx.lineTo(x, y + (Math.random() - 0.5) * 3);
+    }
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 16);
+  return tex;
+}
+
 /** Build the 3D road scene: road surface, lane markings, shoulders, horizon sky. */
 export function createRoadScene(
   scene: THREE.Scene,
@@ -32,9 +76,10 @@ export function createRoadScene(
   ground.position.y = -0.01;
   scene.add(ground);
 
-  // -- Road surface --
+  // -- Road surface with asphalt texture --
   const roadGeo = new THREE.PlaneGeometry(ROAD_WIDTH, ROAD_LENGTH);
-  const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  const asphaltTex = createAsphaltTexture();
+  const roadMat = new THREE.MeshLambertMaterial({ map: asphaltTex });
   const road = new THREE.Mesh(roadGeo, roadMat);
   road.rotation.x = -Math.PI / 2;
   road.position.y = 0;
@@ -42,7 +87,7 @@ export function createRoadScene(
 
   // -- Shoulder lines (white edges of road) --
   const shoulderGeo = new THREE.PlaneGeometry(SHOULDER_WIDTH, ROAD_LENGTH);
-  const shoulderMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const shoulderMat = new THREE.MeshLambertMaterial({ color: 0xeeeeee });
   const leftShoulder = new THREE.Mesh(shoulderGeo, shoulderMat);
   leftShoulder.rotation.x = -Math.PI / 2;
   leftShoulder.position.set(-ROAD_WIDTH / 2 + SHOULDER_WIDTH / 2, 0.005, 0);
@@ -85,6 +130,9 @@ export function createRoadScene(
 
   function update(dt: number) {
     scrollOffset += speed * dt;
+
+    // Scroll road texture for movement feel
+    asphaltTex.offset.y = scrollOffset * 0.15;
 
     // Wrap lane markings to create infinite scroll
     const wrapLen = markingCount * totalSpan;

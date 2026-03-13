@@ -10,6 +10,11 @@ import { initCamera } from "./camera";
 import { GameRecorder, shareRecording, downloadRecording } from "./recorder";
 import { createRecordingDestination } from "./audio";
 import { ObstacleManager, getLevelColor } from "./obstacles/index.ts";
+import {
+  ScreenShake,
+  SpeedLines,
+  CelebrationBurst,
+} from "./effects/index.ts";
 
 // ── Three.js setup ───────────────────────────────────────────────────
 
@@ -57,6 +62,27 @@ engine.on("phraseChange", (s) => {
 // ── Obstacle system ──────────────────────────────────────────────────
 
 const obstacles = new ObstacleManager(scene);
+
+// ── Visual effects ──────────────────────────────────────────────────
+
+const screenShake = new ScreenShake(camera);
+const speedLines = new SpeedLines(scene);
+const celebrationBurst = new CelebrationBurst(scene);
+
+// Screen shake on miss
+engine.on("phraseMiss", () => screenShake.trigger(1.0));
+
+// Celebration burst on hit
+engine.on("phraseHit", (s) => {
+  const color = getLevelColor(s.currentLevel);
+  // Burst at approximate active obstacle position
+  celebrationBurst.emit(new THREE.Vector3(0, 1.5, 0), color);
+});
+
+// Sync speed lines with road speed
+engine.on("phraseChange", (s) => {
+  speedLines.setSpeed(20 * s.speed);
+});
 
 // Set obstacle color when level changes
 engine.on("levelChange", (s) => {
@@ -197,6 +223,9 @@ function animate() {
 
   roadScene.update(dt);
   obstacles.update(dt, timeRatio);
+  screenShake.update(dt);
+  speedLines.update(dt);
+  celebrationBurst.update(dt);
   renderer.render(scene, camera);
 }
 
